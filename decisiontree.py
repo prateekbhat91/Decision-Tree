@@ -1,6 +1,12 @@
+__author__ = 'Prateek'
+
 import utils
 import time
 import numpy as np
+import warnings
+from preprocessing import label_encoder
+
+
 
 class _node():
     '''
@@ -44,6 +50,8 @@ class DecisiontreeClassifier():
         self.usePes = usePes
         self.sampleWeights = sampleWeights
         self.verbose = verbose
+        self.labelEncoder = label_encoder()
+        self.performEncoding = False
 
 
     def fit(self,Xtrain, ytrain):
@@ -53,6 +61,16 @@ class DecisiontreeClassifier():
         :return: None
         '''
         start = time.time()
+        assert Xtrain.shape[0] == ytrain.shape[0], "Number of points should be same in Xtrain and ytrain"
+        if ytrain.ndim != 1:
+            warnings.warn("1D array required, changing to 1D now.")
+            ytrain = np.ravel(ytrain)
+
+        if not (np.issubdtype(ytrain.dtype,np.int)):
+            self.labelEncoder.fit(ytrain)
+            ytrain = self.labelEncoder.transform(ytrain)
+            self.performEncoding = True
+
         'Call the _builddecisiontree function to learn the tree'
         self.dt = self._builddecisiontree(Xtrain, ytrain,weights=self.sampleWeights)
         end = time.time()
@@ -64,10 +82,13 @@ class DecisiontreeClassifier():
         :param Xtest: test data
         :return: predicted values
         '''
-        pred = []
+
+        pred = np.array([])
         for row in Xtest:
-            pred.append(self._evaluate(self.dt, row))
-        return np.array(pred)
+            pred = np.append(pred,self._evaluate(self.dt, row))
+        if self.performEncoding == True:
+            return self.labelEncoder.inverse_transform(pred.astype(int))
+        return pred.astype(int)
 
 
 
@@ -112,21 +133,21 @@ class DecisiontreeClassifier():
         else:
             Algo = utils.calEntropy
 
-        if self.sampleWeights != None:
+        if self.sampleWeights is not None:
             parentScore = utils.calWeightedEntropy(ytrain,weights)
         else:
             parentScore = Algo(ytrain)
 
         for featIndex in range(Xtrain.shape[1]):
             "Divide data based on feature value"
-            for featValue in list(set(Xtrain[:,featIndex])):
+            for featValue in np.unique(Xtrain[:,featIndex]):
                 left, right = utils.divideData(Xtrain [:,featIndex],featValue)
-                if self.sampleWeights != None:
-                    leftent = utils.calWeightedEntropy(ytrain[left,:],weights[left])
-                    rightent = utils.calWeightedEntropy(ytrain[right,:],weights[right])
+                if self.sampleWeights is not None:
+                    leftent = utils.calWeightedEntropy(ytrain[left],weights[left])
+                    rightent = utils.calWeightedEntropy(ytrain[right],weights[right])
                 else:
-                    leftent = Algo(label = ytrain[left,:])
-                    rightent = Algo(label = ytrain[right,:])
+                    leftent = Algo(label = ytrain[left])
+                    rightent = Algo(label = ytrain[right])
 
 
                 "Calculate the portion of data in left node"
@@ -138,7 +159,7 @@ class DecisiontreeClassifier():
                     bestdivide = (left, right)
 
         if bestgain > 0 and len(bestdivide[0]) > 0 and len(bestdivide[1])>0:
-            if self.sampleWeights != None:
+            if self.sampleWeights is not None:
                 leftweights = weights[bestdivide[0]]
                 rightweights = weights[bestdivide[1]]
             else:
@@ -146,9 +167,9 @@ class DecisiontreeClassifier():
                 rightweights = None
 
 
-            leftBranch = self._builddecisiontree(Xtrain[bestdivide[0],:], ytrain[bestdivide[0],:],childError,(parentDepth + 1),leftweights)
+            leftBranch = self._builddecisiontree(Xtrain[bestdivide[0]], ytrain[bestdivide[0]],childError,(parentDepth + 1),leftweights)
 
-            rightBranch = self._builddecisiontree(Xtrain[bestdivide[1],:], ytrain[bestdivide[1],:],childError,(parentDepth + 1),rightweights)
+            rightBranch = self._builddecisiontree(Xtrain[bestdivide[1]], ytrain[bestdivide[1]],childError,(parentDepth + 1),rightweights)
 
             return _node(featureIndex = bestsplit[0], featureValue = bestsplit[1], leftBranch = leftBranch,
                         rightBranch=rightBranch)

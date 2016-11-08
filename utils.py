@@ -1,33 +1,34 @@
+__author__ = 'Prateek'
+
+'Import libraries'
 import numpy as np
 import math
+from collections import Counter
 import operator
+
 
 "Gives the count of classes in the data provided"
 def classDistribution(label):
     '''
     :param label: list containing true label of each data point
-    :return: class distribution
+    :return: class and class distribution
     '''
-    dist = {}
-    for i in label:
-        dist.setdefault(i[0],0)
-        dist[i[0]] += 1
-    return dist
+    return np.unique(label,return_counts=True)
+
 
 'Calculate the gini index'
-def calGini(label,weights):
+def calGini(label):
     '''
     :param label: list containing true label of each data point
-    :param weights: list containing weight of each sample
     :return: gini score
     '''
     gini = 0
-    classdist = classDistribution(label)
+    classes,counts = classDistribution(label)
     numSamples = label.shape[0]
 
-    for classes in classdist:
-        gini += pow((classdist[classes] / numSamples), 2)
-    return 1 - gini
+    for c in counts:
+        gini += np.square(c/numSamples)
+    return 1- gini
 
 
 'Calculate entropy'
@@ -38,19 +39,22 @@ def calEntropy(label):
     '''
     entropy = 0
     numSamples = label.shape[0]
-    classDist = classDistribution(label)
-    for classes in classDist:
-        prob = classDist[classes]/numSamples
+    classes,count = classDistribution(label)
+    for c in count:
+        prob = c/numSamples
         entropy = entropy - prob * math.log(prob, 2)
+
     return entropy
 
 'Calculate weighted entropy'
 def calWeightedEntropy(label, weights):
     '''
-    :param label: lebel of data points
+    :param label: label of data points
     :param weights: weights of data points
     :return: entropy
     '''
+
+    assert label.shape == weights.shape, 'Number of weights is not equal to number of data points.'
     totalsum = np.sum(weights)
     entropy = 0
     classes = np.unique(label)
@@ -68,23 +72,21 @@ def divideData(data,featValue):
     :param featValue: feature value used to split the data
     :return: indices of points belonging to left or right child
     '''
-    left = []
-    right = []
-    for i in range(len(data)):
-        if data[i] >= featValue:
-            left.append(i)
-        else:
-            right.append(i)
-    return left,right
+    leftind = np.where(data >= featValue)[0]
+    rightind = np.where(data < featValue)[0]
+
+    return leftind.astype(int),rightind.astype(int)
 
 'Return the majority class'
 def majClass(label):
     '''
     :param label: list containing true label of each data point.
-    :return: the majority class label..
+    :return: the majority class label.
     '''
-    classDist = classDistribution(label)
-    return max(iter(classDist.items()), key=operator.itemgetter(1))[0]
+    assert label.ndim == 1, "1D array required"
+
+    count = np.bincount(label)
+    return np.argmax(count)
 
 'Calculate pessimistic error'
 def calPessimisticError(label):
@@ -92,8 +94,8 @@ def calPessimisticError(label):
     :param label: list containing true label of each data point
     :return: pessimistic error of adding a node.
     '''
-    classDist = classDistribution(label)
-    majclass = max(iter(classDist.items()), key=operator.itemgetter(1))[0]
     numSamples = label.shape[0]
-    err = ((numSamples - classDist[majclass]) + 2 * 0.5) / numSamples
+    counter = Counter(label)
+    majclass = max(iter(counter.items()), key=operator.itemgetter(1))[0]
+    err = ((numSamples - counter[majclass]) + 2 * 0.5) / numSamples
     return err

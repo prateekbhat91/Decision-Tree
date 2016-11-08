@@ -1,3 +1,5 @@
+__author__ = 'Prateek'
+
 import time
 import math
 import numpy as np
@@ -46,7 +48,7 @@ class BaggingClassifier():
             ind = np.random.choice(a=Xtrain.shape[0], size=Xtrain.shape[0], replace=True)
 
             'Pass the bootstrapped dataset to the process'
-            p = Process(target=self._fitparallel, args=(Xtrain[ind, :], ytrain[ind, :]))
+            p = Process(target=self._fitparallel, args=(Xtrain[ind], ytrain[ind]))
             jobs.append(p)
             p.start()
         'Join the processes'
